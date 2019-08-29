@@ -149,6 +149,46 @@ public class HTTPServerResponse: ServerResponse {
     }
 
     /**
+     Stream content of a file
+     This method will finalize connection same like end() method.
+
+     - Parameter fileHandle: file handle to file which suppose to be streamed
+     - Throws: Socket.error if an error occurred while writing to the socket
+     */
+    public func streamFile(fileHandle: FileHandle) throws {
+        guard let channel = self.channel else {
+            // The connection was probably closed by the client, subsequently the Channel was closed, deregistered from the EventLoop and deallocated.
+            // TODO: We must be throwing an error from here, for which we'd need to add a new Error type to the API.
+            return
+        }
+
+        guard let handler = self.handler else {
+            // A deallocated channel handler suggests the pipeline and the channel were also de-allocated. The connection was probably closed.
+            // TODO: We must be throwing an error from here, for which we'd need to add a new Error type to the API.
+            return
+        }
+
+        let status = HTTPResponseStatus(statusCode: statusCode?.rawValue ?? 0)
+        if handler.clientRequestedKeepAlive {
+            headers["Connection"] = ["Keep-Alive"]
+            if let maxConnections = handler.keepAliveState.requestsRemaining {
+                headers["Keep-Alive"] = ["timeout=\(HTTPRequestHandler.keepAliveTimeout), max=\(Int(maxConnections))"]
+            } else {
+                headers["Keep-Alive"] = ["timeout=\(HTTPRequestHandler.keepAliveTimeout)"]
+            }
+        }
+
+        channel.eventLoop.run {
+            do {
+                try self.streamFile(fileHandle: fileHandle, channel: channel, handler: handler, status: status)
+            } catch let error {
+                Log.error("Error sending response: \(error)")
+                // TODO: We must be rethrowing/throwing from here, for which we'd need to add a new Error type to the API
+            }
+        }
+    }
+
+    /**
     Write a String to the body of a HTTP response and complete sending the HTTP response.
 
     - Parameter text: String to write to a socket.
@@ -256,6 +296,28 @@ public class HTTPServerResponse: ServerResponse {
         if let request = handler.serverRequest {
             Monitor.delegate?.finished(request: request, response: self)
         }
+    }
+
+    // Stream response to the client using file handler
+    private func streamFile(fileHandle: FileHandle, channel: Channel, handler: HTTPRequestHandler, status: HTTPResponseStatus, promise: EventLoopPromise<Void>? = nil) throws {
+        let response = HTTPResponseHead(version: httpVersion, status: status, headers: headers.nioHeaders)
+        channel.write(handler.wrapOutboundOut(.head(response)), promise: nil)
+
+        var hasData = true
+        repeat {
+            let data = fileHandle.readData(ofLength: HTTPServerResponse.bufferSize)
+            hasData = data.count > 0
+
+            var buffer = channel.allocator.buffer(capacity: HTTPServerResponse.bufferSize)
+            buffer.writeBytes(data)
+
+            if hasData {
+                channel.write(handler.wrapOutboundOut(.body(.byteBuffer(buffer))), promise: promise)
+            }
+        } while(hasData)
+
+        channel.writeAndFlush(handler.wrapOutboundOut(.end(nil)), promise: promise)
+        handler.updateKeepAliveState()
     }
 
     func end(with errorCode: HTTPStatusCode, message: String? = nil) throws {

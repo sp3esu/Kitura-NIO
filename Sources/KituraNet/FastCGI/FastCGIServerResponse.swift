@@ -98,6 +98,10 @@ public class FastCGIServerResponse: ServerResponse {
         fatalError("FastCGI not implemented yet.")
     }
 
+    public func streamFile(fileHandle: FileHandle) throws {
+        fatalError("FastCGI not implemented yet.")
+    }
+
     /// Complete sending the HTTP response
     ///
     /// - Throws: Socket.error if an error occurred while writing to a socket
