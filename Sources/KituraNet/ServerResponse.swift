@@ -63,4 +63,8 @@ public protocol ServerResponse: class {
     /// Reset this response object back to it's initial state
     func reset()
 
+    func startDirectWrite() throws
+    func writeDirect(from data: Data) throws
+    func endDirectWrite() throws
+
 }

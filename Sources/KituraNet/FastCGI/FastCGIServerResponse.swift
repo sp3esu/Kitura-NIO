@@ -125,4 +125,16 @@ public class FastCGIServerResponse: ServerResponse {
     public func reset() {
         /*****  TBD *******/
     }
+
+    public func startDirectWrite() throws {
+        fatalError("FastCGI not implemented yet.")
+    }
+
+    public func writeDirect(from data: Data) throws {
+        fatalError("FastCGI not implemented yet.")
+    }
+
+    public func endDirectWrite() throws {
+        fatalError("FastCGI not implemented yet.")
+    }
 }

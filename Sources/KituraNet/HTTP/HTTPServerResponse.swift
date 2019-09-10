@@ -148,6 +148,79 @@ public class HTTPServerResponse: ServerResponse {
         }
     }
 
+    public func startDirectWrite() throws {
+        guard let channel = self.channel else {
+            // The connection was probably closed by the client, subsequently the Channel was closed, deregistered from the EventLoop and deallocated.
+            // TODO: We must be throwing an error from here, for which we'd need to add a new Error type to the API.
+            return
+        }
+
+        guard let handler = self.handler else {
+            // A deallocated channel handler suggests the pipeline and the channel were also de-allocated. The connection was probably closed.
+            // TODO: We must be throwing an error from here, for which we'd need to add a new Error type to the API.
+            return
+        }
+
+        let status = HTTPResponseStatus(statusCode: statusCode?.rawValue ?? 0)
+        if handler.clientRequestedKeepAlive {
+            headers["Connection"] = ["Keep-Alive"]
+            if let maxConnections = handler.keepAliveState.requestsRemaining {
+                headers["Keep-Alive"] = ["timeout=\(HTTPRequestHandler.keepAliveTimeout), max=\(Int(maxConnections))"]
+            } else {
+                headers["Keep-Alive"] = ["timeout=\(HTTPRequestHandler.keepAliveTimeout)"]
+            }
+        }
+
+        channel.eventLoop.run {
+            let response = HTTPResponseHead(version: self.httpVersion, status: status, headers: self.headers.nioHeaders)
+            channel.write(handler.wrapOutboundOut(.head(response)), promise: nil)
+        }
+    }
+
+    public func writeDirect(from data: Data) throws {
+        guard let channel = self.channel else {
+            // The connection was probably closed by the client, subsequently the Channel was closed, deregistered from the EventLoop and deallocated.
+            // TODO: We must be throwing an error from here, for which we'd need to add a new Error type to the API.
+            return
+        }
+
+        guard let handler = self.handler else {
+            // A deallocated channel handler suggests the pipeline and the channel were also de-allocated. The connection was probably closed.
+            // TODO: We must be throwing an error from here, for which we'd need to add a new Error type to the API.
+            return
+        }
+
+        channel.eventLoop.run {
+            let hasData = data.count > 0
+            if hasData {
+                var buffer = channel.allocator.buffer(capacity: HTTPServerResponse.bufferSize)
+                buffer.writeBytes(data)
+
+                print("writing to channel...")
+                let _ = channel.writeAndFlush(handler.wrapOutboundOut(.body(.byteBuffer(buffer))))
+            }
+        }
+    }
+
+    public func endDirectWrite() throws {
+        guard let channel = self.channel else {
+            // The connection was probably closed by the client, subsequently the Channel was closed, deregistered from the EventLoop and deallocated.
+            // TODO: We must be throwing an error from here, for which we'd need to add a new Error type to the API.
+            return
+        }
+
+        guard let handler = self.handler else {
+            // A deallocated channel handler suggests the pipeline and the channel were also de-allocated. The connection was probably closed.
+            // TODO: We must be throwing an error from here, for which we'd need to add a new Error type to the API.
+            return
+        }
+
+        channel.eventLoop.run {
+            channel.writeAndFlush(handler.wrapOutboundOut(.end(nil)), promise: nil)
+            handler.updateKeepAliveState()
+        }
+    }
+    
     /**
      Stream content of a file
      This method will finalize connection same like end() method.
