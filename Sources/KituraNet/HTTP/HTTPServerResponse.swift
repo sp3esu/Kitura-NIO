@@ -196,7 +196,6 @@ public class HTTPServerResponse: ServerResponse {
                 var buffer = channel.allocator.buffer(capacity: HTTPServerResponse.bufferSize)
                 buffer.writeBytes(data)
 
-                print("writing to channel...")
                 let _ = channel.writeAndFlush(handler.wrapOutboundOut(.body(.byteBuffer(buffer))))
             }
         }
