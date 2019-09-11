@@ -98,7 +98,7 @@ public class FastCGIServerResponse: ServerResponse {
         fatalError("FastCGI not implemented yet.")
     }
 
-    public func streamFile(fileHandle: FileHandle) throws {
+    public func streamFile(path: String, region: ClosedRange<Int>? = nil) throws {
         fatalError("FastCGI not implemented yet.")
     }
 

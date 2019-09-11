@@ -43,10 +43,11 @@ public protocol ServerResponse: class {
 
     /// Streams contents of a file
     ///
-    /// - Parameter fileHandle: file handle to file which suppose to be streamed
+    /// - Parameter path: file path
+    /// - Parameter region: optional region of a file to stream
     ///
     /// - Throws: Socket.error if an error occurred while writing to the socket
-    func streamFile(fileHandle: FileHandle) throws
+    func streamFile(path: String, region: ClosedRange<Int>?) throws
 
     /// Add a string to the body of the HTTP response and complete sending the HTTP response
     ///
