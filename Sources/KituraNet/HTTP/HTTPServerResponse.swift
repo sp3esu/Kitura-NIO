@@ -256,12 +256,29 @@ public class HTTPServerResponse: ServerResponse {
                 let fh = try NIOFileHandle(path: path)
 
                 if let region = region {
+                    // Range of a file
                     fileRegion = FileRegion(fileHandle: fh, readerIndex: region.lowerBound, endIndex: region.upperBound)
                 } else {
+                    // Full file
                     fileRegion = try FileRegion(fileHandle: fh)
                 }
 
-                try self.streamFile(fileRegion: fileRegion, channel: channel, handler: handler, status: status)
+                // We want to close NIOFileHandler when file is transferred
+                let responseSentPromise = channel.eventLoop.makePromise(of: Void.self)
+
+                // Stream file region
+                try self.streamFile(fileRegion: fileRegion, channel: channel, handler: handler, status: status, promise: responseSentPromise)
+
+                // Close file handler (or app will crash) when file is transmitted
+                responseSentPromise.futureResult.whenComplete { _ in
+                    do {
+                        try fh.close()
+
+                    } catch let error {
+                        // TODO: error handling
+                        print("Error while closing NIOFileHandler after transmitting a file: \(error)")
+                    }
+                }
             } catch let error {
                 Log.error("Error sending response: \(error)")
                 // TODO: We must be rethrowing/throwing from here, for which we'd need to add a new Error type to the API
@@ -382,22 +399,8 @@ public class HTTPServerResponse: ServerResponse {
     // Stream response to the client using file handler
     private func streamFile(fileRegion: FileRegion, channel: Channel, handler: HTTPRequestHandler, status: HTTPResponseStatus, promise: EventLoopPromise<Void>? = nil) throws {
         let response = HTTPResponseHead(version: httpVersion, status: status, headers: headers.nioHeaders)
-        channel.write(handler.wrapOutboundOut(.head(response)), promise: nil)
-        channel.write(handler.wrapOutboundOut(.body(.fileRegion(fileRegion))), promise: promise)
-
-//        var hasData = true
-//        repeat {
-//            let data = fileHandle.readData(ofLength: HTTPServerResponse.bufferSize)
-//            hasData = data.count > 0
-//
-//            var buffer = channel.allocator.buffer(capacity: HTTPServerResponse.bufferSize)
-//            buffer.writeBytes(data)
-//
-//            if hasData {
-//                channel.write(handler.wrapOutboundOut(.body(.byteBuffer(buffer))), promise: promise)
-//            }
-//        } while(hasData)
-
+        channel.writeAndFlush(handler.wrapOutboundOut(.head(response)), promise: nil)
+        channel.writeAndFlush(handler.wrapOutboundOut(.body(.fileRegion(fileRegion))), promise: nil)
         channel.writeAndFlush(handler.wrapOutboundOut(.end(nil)), promise: promise)
         handler.updateKeepAliveState()
     }
