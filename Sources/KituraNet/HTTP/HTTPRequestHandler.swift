@@ -154,7 +154,7 @@ internal class HTTPRequestHandler: ChannelInboundHandler, RemovableChannelHandle
     }
 
     func channelInactive(context: ChannelHandlerContext) {
-        print("channelInactive called - client dropper connection")
+        print("channelInactive called - client dropped connection (url: \(serverRequest?.urlURL) - \(serverRequest?.headers["Range"])")
         self.serverRequest?.canceled = true
     }
 }
