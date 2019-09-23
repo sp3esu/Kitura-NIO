@@ -54,6 +54,11 @@ public class HTTPServerRequest: ServerRequest {
     public var headers: HeadersContainer
 
     /**
+     Determine whenever request was canceled in the mean time (useful while long processing)
+    */
+    public var canceled: Bool = false
+
+    /**
      The URL from the request in string form
      This contains just the path and query parameters starting with '/'
      Use 'urlURL' for the full URL

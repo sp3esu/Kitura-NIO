@@ -25,6 +25,11 @@ public class FastCGIServerRequest: ServerRequest {
     /// The IP address of the client
     public private(set) var remoteAddress: String = ""
 
+    /**
+     Determine whenever request was canceled in the mean time (useful while long processing)
+    */
+    public var canceled: Bool = false
+
     /// Major version of HTTP of the request
     public private(set) var httpVersionMajor: UInt16? = 0
 

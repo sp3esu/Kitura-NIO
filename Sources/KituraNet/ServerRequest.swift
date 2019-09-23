@@ -24,6 +24,9 @@ public protocol ServerRequest: class {
     /// The set of headers received with the incoming request
     var headers: HeadersContainer { get }
 
+    /// Whenever request was canceled (when client dropped connection)
+    var canceled: Bool { get }
+
     /// The URL from the request in string form
     /// This contains just the path and query parameters starting with '/'
     /// Use 'urlURL' for the full URL
