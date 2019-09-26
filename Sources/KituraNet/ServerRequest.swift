@@ -82,3 +82,10 @@ public protocol ServerRequest: class {
     /// - Returns: The number of bytes read
     func readAllData(into data: inout Data) throws -> Int
 }
+
+// Canceled is optional
+extension ServerRequest {
+    var canceled: Bool {
+        return false
+    }
+}
