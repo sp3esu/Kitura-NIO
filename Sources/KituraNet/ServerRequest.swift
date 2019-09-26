@@ -84,7 +84,7 @@ public protocol ServerRequest: class {
 }
 
 // Canceled is optional
-extension ServerRequest {
+public extension ServerRequest {
     var canceled: Bool {
         return false
     }
