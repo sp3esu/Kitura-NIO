@@ -26,4 +26,18 @@ public protocol ServerDelegate: class {
     ///                     The ServerResponse object enables you to build and send your response to the client who sent
     ///                     the request. This includes headers, the body, and the response code.
     func handle(request: ServerRequest, response: ServerResponse)
+
+    func didReceivedRequestHeader(request: ServerRequest)
+    func didReceivedBodyPart(request: ServerRequest)
+}
+
+
+public extension ServerDelegate {
+    func didReceivedRequestHeader(request: ServerRequest) {
+        // do nothing
+    }
+
+    func didReceivedBodyPart(request: ServerRequest) {
+        // do nothing
+    }
 }

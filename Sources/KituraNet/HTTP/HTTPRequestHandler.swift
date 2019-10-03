@@ -51,6 +51,8 @@ internal class HTTPRequestHandler: ChannelInboundHandler, RemovableChannelHandle
 
     private let syncQueue = DispatchQueue(label: "HTTPServer.keepAliveSync")
 
+    private let serialQueue = DispatchQueue(label: "HTTPServer.serialQueue")
+
     private var _keepAliveState: KeepAliveState = .unlimited
 
     static let keepAliveTimeout: TimeInterval = 60
@@ -81,20 +83,39 @@ internal class HTTPRequestHandler: ChannelInboundHandler, RemovableChannelHandle
         case .head(let header):
             serverRequest = HTTPServerRequest(channel: context.channel, requestHead: header, enableSSL: enableSSLVerification)
             self.clientRequestedKeepAlive = header.isKeepAlive
+
+            // We need to use serial queue to not mess up with order of received data
+            serialQueue.async {
+                guard let serverRequest = self.serverRequest else { return }
+                let delegate = self.server.delegate ?? HTTPDummyServerDelegate()
+                delegate.didReceivedRequestHeader(request: serverRequest)
+            }
+
         case .body(var buffer):
             guard let serverRequest = serverRequest else {
                 Log.error("No ServerRequest available")
                 return
             }
+
             if serverRequest.buffer == nil {
                 serverRequest.buffer = BufferList(with: buffer)
             } else {
                 serverRequest.buffer!.byteBuffer.writeBuffer(&buffer)
             }
+
+            // We need to use serial queue to not mess up with order of received data
+            serialQueue.async {
+                guard let serverRequest = self.serverRequest else { return }
+                let delegate = self.server.delegate ?? HTTPDummyServerDelegate()
+                delegate.didReceivedBodyPart(request: serverRequest)
+            }
+
         case .end:
             serverResponse = HTTPServerResponse(channel: context.channel, handler: self)
+
+            // We need to use serial queue to not mess up with order of received data
             //Make sure we use the latest delegate registered with the server
-            DispatchQueue.global().async {
+            serialQueue.async {
                 guard let serverRequest = self.serverRequest, let serverResponse = self.serverResponse else { return }
                 let delegate = self.server.delegate ?? HTTPDummyServerDelegate()
                 Monitor.delegate?.started(request: serverRequest, response: serverResponse)
