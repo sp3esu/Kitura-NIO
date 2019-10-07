@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+import Foundation
+
 /// The protocol defining the delegate for the HTTPServer and the FastCGIServer classes.
 /// The delegate's handle function is invoked when new requests arrive at the server for processing.
 public protocol ServerDelegate: class {
@@ -28,7 +30,7 @@ public protocol ServerDelegate: class {
     func handle(request: ServerRequest, response: ServerResponse)
 
     func didReceivedRequestHeader(request: ServerRequest)
-    func didReceivedBodyPart(request: ServerRequest)
+    func didReceivedBodyPart(request: ServerRequest, data: Data?)
 }
 
 
@@ -37,7 +39,7 @@ public extension ServerDelegate {
         // do nothing
     }
 
-    func didReceivedBodyPart(request: ServerRequest) {
+    func didReceivedBodyPart(request: ServerRequest, data: Data?) {
         // do nothing
     }
 }

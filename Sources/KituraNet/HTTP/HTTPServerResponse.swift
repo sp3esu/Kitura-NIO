@@ -250,35 +250,36 @@ public class HTTPServerResponse: ServerResponse {
             }
         }
 
+        var fileRegion: FileRegion
+        let fh = try NIOFileHandle(path: path)
+
+        if let region = region {
+            // Range of a file
+            fileRegion = FileRegion(fileHandle: fh, readerIndex: region.lowerBound, endIndex: region.upperBound)
+        } else {
+            // Full file
+            fileRegion = try FileRegion(fileHandle: fh)
+        }
+
+        // We want to close NIOFileHandler when file is transferred
+        let responseSentPromise = channel.eventLoop.makePromise(of: Void.self)
+
+        // Close file handler (or app will crash) when file is transmitted
+        responseSentPromise.futureResult.whenComplete { _ in
+            do {
+                try fh.close()
+
+            } catch let error {
+                // TODO: error handling
+                print("Error while closing NIOFileHandler after transmitting a file: \(error)")
+            }
+        }
+
+        // Stream on proper event loop
         channel.eventLoop.run {
             do {
-                var fileRegion: FileRegion
-                let fh = try NIOFileHandle(path: path)
-
-                if let region = region {
-                    // Range of a file
-                    fileRegion = FileRegion(fileHandle: fh, readerIndex: region.lowerBound, endIndex: region.upperBound)
-                } else {
-                    // Full file
-                    fileRegion = try FileRegion(fileHandle: fh)
-                }
-
-                // We want to close NIOFileHandler when file is transferred
-                let responseSentPromise = channel.eventLoop.makePromise(of: Void.self)
-
                 // Stream file region
                 try self.streamFile(fileRegion: fileRegion, channel: channel, handler: handler, status: status, promise: responseSentPromise)
-
-                // Close file handler (or app will crash) when file is transmitted
-                responseSentPromise.futureResult.whenComplete { _ in
-                    do {
-                        try fh.close()
-
-                    } catch let error {
-                        // TODO: error handling
-                        print("Error while closing NIOFileHandler after transmitting a file: \(error)")
-                    }
-                }
             } catch let error {
                 Log.error("Error sending response: \(error)")
                 // TODO: We must be rethrowing/throwing from here, for which we'd need to add a new Error type to the API

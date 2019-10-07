@@ -53,6 +53,8 @@ internal class HTTPRequestHandler: ChannelInboundHandler, RemovableChannelHandle
 
     private let serialQueue = DispatchQueue(label: "HTTPServer.serialQueue")
 
+    public var bufferEnabled = true
+
     private var _keepAliveState: KeepAliveState = .unlimited
 
     static let keepAliveTimeout: TimeInterval = 60
@@ -97,17 +99,21 @@ internal class HTTPRequestHandler: ChannelInboundHandler, RemovableChannelHandle
                 return
             }
 
-            if serverRequest.buffer == nil {
-                serverRequest.buffer = BufferList(with: buffer)
-            } else {
-                serverRequest.buffer!.byteBuffer.writeBuffer(&buffer)
+            if serverRequest.method.lowercased() != "post" {
+                if serverRequest.buffer == nil {
+                    serverRequest.buffer = BufferList(with: buffer)
+                } else {
+                    serverRequest.buffer!.byteBuffer.writeBuffer(&buffer)
+                }
             }
 
             // We need to use serial queue to not mess up with order of received data
             serialQueue.async {
                 guard let serverRequest = self.serverRequest else { return }
                 let delegate = self.server.delegate ?? HTTPDummyServerDelegate()
-                delegate.didReceivedBodyPart(request: serverRequest)
+
+                let data = buffer.getData(at: 0, length: buffer.readableBytes) ?? Data()
+                delegate.didReceivedBodyPart(request: serverRequest, data: data)
             }
 
         case .end:
