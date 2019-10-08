@@ -255,7 +255,17 @@ public class HTTPServerResponse: ServerResponse {
 
         if let region = region {
             // Range of a file
-            fileRegion = FileRegion(fileHandle: fh, readerIndex: region.lowerBound, endIndex: region.upperBound)
+            let fm = FileManager.default
+            let attribs = try fm.attributesOfItem(atPath: path) as NSDictionary
+
+            // TODO: this should count if we are not crossing upper bound in any case
+            let fileSize = Int(attribs.fileSize())
+
+            if fileSize >= region.upperBound {
+                fileRegion = FileRegion(fileHandle: fh, readerIndex: region.lowerBound, endIndex: region.upperBound)
+            } else {
+                fileRegion = FileRegion(fileHandle: fh, readerIndex: region.lowerBound, endIndex:fileSize)
+            }
         } else {
             // Full file
             fileRegion = try FileRegion(fileHandle: fh)
@@ -280,6 +290,7 @@ public class HTTPServerResponse: ServerResponse {
             do {
                 // Stream file region
                 try self.streamFile(fileRegion: fileRegion, channel: channel, handler: handler, status: status, promise: responseSentPromise)
+
             } catch let error {
                 Log.error("Error sending response: \(error)")
                 // TODO: We must be rethrowing/throwing from here, for which we'd need to add a new Error type to the API
