@@ -19,6 +19,10 @@ import NIOHTTP1
 import LoggerAPI
 import Foundation
 
+enum HTTPServerResponseError: Error {
+    case offsetOutOfBounds
+}
+
 // MARK: HTTPServerResponse
 /**
 This class implements the `ServerResponse` protocol for outgoing server
@@ -257,14 +261,16 @@ public class HTTPServerResponse: ServerResponse {
             // Range of a file
             let fm = FileManager.default
             let attribs = try fm.attributesOfItem(atPath: path) as NSDictionary
-
-            // TODO: this should count if we are not crossing upper bound in any case
             let fileSize = Int(attribs.fileSize())
 
-            if fileSize >= region.upperBound {
-                fileRegion = FileRegion(fileHandle: fh, readerIndex: region.lowerBound, endIndex: region.upperBound)
-            } else {
+            if region.lowerBound <= fileSize {
                 fileRegion = FileRegion(fileHandle: fh, readerIndex: region.lowerBound, endIndex:fileSize)
+            } else {
+                // TODO: what now? lower bound is beyond file size, let's throw exception for now
+                print("Error - offset out of bounds")
+
+                try fh.close()  // TODO: I'm not sure about this, but we can't leave it as it is
+                throw HTTPServerResponseError.offsetOutOfBounds
             }
         } else {
             // Full file
