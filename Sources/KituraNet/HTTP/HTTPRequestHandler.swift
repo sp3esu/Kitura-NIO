@@ -99,6 +99,7 @@ internal class HTTPRequestHandler: ChannelInboundHandler, RemovableChannelHandle
                 return
             }
 
+            // TODO: this is wrong, it should be configurated up front per endpoint address
             if serverRequest.method.lowercased() != "post" {
                 if serverRequest.buffer == nil {
                     serverRequest.buffer = BufferList(with: buffer)
