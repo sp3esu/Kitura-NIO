@@ -260,8 +260,8 @@ public class HTTPServerResponse: ServerResponse {
         if let region = region {
             // Range of a file
             let fm = FileManager.default
-            let attribs = try fm.attributesOfItem(atPath: path) as NSDictionary
-            let fileSize = Int(attribs.fileSize())
+            let attribs = try fm.attributesOfItem(atPath: path)
+            let fileSize = Int(attribs[.size] as! Int)
 
             if region.lowerBound <= fileSize {
                 fileRegion = FileRegion(fileHandle: fh, readerIndex: region.lowerBound, endIndex:fileSize)
